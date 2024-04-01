@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import numpy as np
 
 import torch
 from torchvision import transforms, datasets
@@ -85,3 +86,56 @@ def test(model, device, test_loader, criterion):
 
     # returns test accuracy and loss for the epoch
     return (100. * correct / len(test_loader.dataset)), test_loss
+
+### runs train and test loop for each epoch
+def train_orchestrator(model, device, train_loader, test_loader,
+                       criterion, optimizer, scheduler,
+                       learning_rate, num_epochs = 2, 
+                       early_stopping = False, early_stopping_patience = 10):
+
+
+    # Data to plot accuracy and loss graphs
+    train_losses = []
+    test_losses = []
+    train_acc = []
+    test_acc = []
+    best_test_loss = np.inf
+    best_epoch = -1
+
+    for epoch in range(1, num_epochs+1):
+        print(f'Epoch {epoch}')
+        # call train function from utils.py
+        trn_acc, trn_loss = train(model, device, train_loader, optimizer, criterion)
+        # accumulate train accuracies and test losses for visualisation
+        train_acc.append(trn_acc)
+        train_losses.append(trn_loss)
+
+        # call test function from utils.py
+        tst_acc, tst_loss = test(model, device, test_loader, criterion)
+        # accumulate test accuracies and test losses for visualisation
+        test_acc.append(tst_acc)
+        test_losses.append(tst_loss)
+
+        scheduler.step(tst_loss)
+        
+        if learning_rate is not None and learning_rate != scheduler.get_last_lr()[0]:
+            learning_rate = scheduler.get_last_lr()[0]
+            print(f'Learning rate updated to: {learning_rate}')
+            best_epoch = epoch
+            # break
+
+        # early stopping
+        if early_stopping:
+            if tst_loss < best_test_loss:
+                best_test_loss = tst_loss
+                best_epoch = epoch
+                checkpoint(model, "best_model.pth")
+            elif epoch - best_epoch > early_stopping_patience:
+                print("Early stopped training at epoch %d" % epoch)
+                break  # terminate the training loop
+        else: 
+            best_epoch = epoch
+
+    if early_stopping: resume(model, "best_model.pth")
+
+    return train_losses, train_acc, test_losses, test_acc, best_epoch, model
