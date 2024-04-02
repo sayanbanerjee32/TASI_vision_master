@@ -111,13 +111,16 @@ def plot_top_loss(model, device, data_loader, criterion,
                rows = img_rows, cols = img_cols)
     return incr_groups
 
-def plot_image(images, target_labels, pred_labels, losses, rows, cols,
+def plot_image(images, target_labels, pred_labels = None, losses = None, rows = 5, cols = 5,
                img_size=(5,5), font_size = 7):
     figure = plt.figure(figsize=img_size)
     for index in range(1, cols * rows  + 1):
         plt.subplot(rows, cols, index)
-        plt.title(f'target: {target_labels[index]}\nprediction: {pred_labels[index]}\nloss: {round(losses[index],2)}',
+        if pred_labels is not None and losses is not None:
+            plt.title(f'target: {target_labels[index]}\nprediction: {pred_labels[index]}\nloss: {round(losses[index],2)}',
                   fontsize = font_size)
+        else:
+            plt.title(f'target: {target_labels[index]}}', fontsize = font_size)
         plt.axis('off')
         plt.imshow(images[index].permute(1, 2, 0))
     figure.tight_layout()
