@@ -1,8 +1,16 @@
 from tqdm import tqdm
 import numpy as np
 
+from torch_lr_finder import LRFinder
+
 import torch
 from torchvision import transforms, datasets
+
+def lr_range_test(model, optimizer, criterion, device, end_lr=10, num_iter=100):
+    lr_finder = LRFinder(model, optimizer, criterion, device=device)
+    lr_finder.range_test(train_loader, end_lr=end_lr, num_iter=num_iter)
+    lr_finder.plot() # to inspect the loss-learning rate graph
+    lr_finder.reset() # to reset the model and optimizer to their initial state
 
 ## Return prediction count based on model prediction and target
 def GetCorrectPredCount(pPrediction, pLabels):
