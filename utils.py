@@ -120,7 +120,7 @@ def plot_image(images, target_labels, pred_labels = None, losses = None, rows = 
             plt.title(f'target: {target_labels[index]}\nprediction: {pred_labels[index]}\nloss: {round(losses[index],2)}',
                   fontsize = font_size)
         else:
-            plt.title(f'target: {target_labels[index]}}', fontsize = font_size)
+            plt.title(f'target: {target_labels[index]}', fontsize = font_size)
         plt.axis('off')
         plt.imshow(images[index].permute(1, 2, 0))
     figure.tight_layout()
