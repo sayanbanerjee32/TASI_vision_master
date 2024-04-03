@@ -12,7 +12,7 @@ class Net(nn.Module):
                       kernel_size=(3, 3), padding=1, bias=False),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            # nn.Dropout(dropout_value)
+            nn.Dropout(dropout_value)
         ) 
 
 
@@ -26,7 +26,7 @@ class Net(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            # nn.Dropout(dropout_value)
+            nn.Dropout(dropout_value)
         ) 
 
         self.R1 = nn.Sequential(
@@ -34,11 +34,12 @@ class Net(nn.Module):
                       kernel_size=(3, 3), padding=1, bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(),
+            nn.Dropout(dropout_value),
             nn.Conv2d(in_channels=128, out_channels=128,
                       kernel_size=(3, 3), padding=1, bias=False),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            # nn.Dropout(dropout_value)
+            nn.Dropout(dropout_value)
         )
 
         # Layer 2 -
@@ -53,7 +54,7 @@ class Net(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.BatchNorm2d(256),
             nn.ReLU(),
-            # nn.Dropout(dropout_value)
+            nn.Dropout(dropout_value)
         )
 
         # Layer 3 -
@@ -66,7 +67,7 @@ class Net(nn.Module):
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.BatchNorm2d(512),
             nn.ReLU(),
-            # nn.Dropout(dropout_value)
+            nn.Dropout(dropout_value)
         ) 
 
         self.R2 = nn.Sequential(
@@ -74,11 +75,12 @@ class Net(nn.Module):
                       kernel_size=(3, 3), padding=1, bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(),
+            nn.Dropout(dropout_value),
             nn.Conv2d(in_channels=512, out_channels=512,
                       kernel_size=(3, 3), padding=1, bias=False),
             nn.BatchNorm2d(512),
             nn.ReLU(),
-            # nn.Dropout(dropout_value)
+            nn.Dropout(dropout_value)
         )
 
         # MaxPooling with Kernel Size 4
