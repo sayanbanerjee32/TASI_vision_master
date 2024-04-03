@@ -17,7 +17,7 @@ def GetCorrectPredCount(pPrediction, pLabels):
   return pPrediction.argmax(dim=1).eq(pLabels).sum().item()
 
 ### train function that will be called for each epoch
-def train(model, device, train_loader, optimizer, criterion):
+def train(model, device, train_loader, optimizer, criterion,scheduler = None):
   # this only tells the model that training will start so that training related configuration can be swithed on
   model.train()
   pbar = tqdm(train_loader)
@@ -45,6 +45,8 @@ def train(model, device, train_loader, optimizer, criterion):
     # takes a step, i.e. updates parameter values based on gradients
     # these parameter values will be used for the next batch
     optimizer.step()
+    if scheduler is not None:
+        scheduler.step()
 
     correct += GetCorrectPredCount(pred, target)
     processed += len(data)
@@ -99,7 +101,8 @@ def test(model, device, test_loader, criterion):
 def train_orchestrator(model, device, train_loader, test_loader,
                        criterion, optimizer, scheduler,
                        learning_rate, num_epochs = 2, 
-                       early_stopping = False, early_stopping_patience = 10):
+                       early_stopping = False, early_stopping_patience = 10,
+                       scheduler_after_epoch = False ):
 
 
     # Data to plot accuracy and loss graphs
@@ -113,7 +116,10 @@ def train_orchestrator(model, device, train_loader, test_loader,
     for epoch in range(1, num_epochs+1):
         print(f'Epoch {epoch}')
         # call train function from utils.py
-        trn_acc, trn_loss = train(model, device, train_loader, optimizer, criterion)
+        if ~scheduler_after_epoch:
+            trn_acc, trn_loss = train(model, device, train_loader, optimizer, criterion, scheduler)
+        else:
+            trn_acc, trn_loss = train(model, device, train_loader, optimizer, criterion)
         # accumulate train accuracies and test losses for visualisation
         train_acc.append(trn_acc)
         train_losses.append(trn_loss)
@@ -124,7 +130,7 @@ def train_orchestrator(model, device, train_loader, test_loader,
         test_acc.append(tst_acc)
         test_losses.append(tst_loss)
 
-        scheduler.step(tst_loss)
+        if scheduler_after_epoch: scheduler.step(tst_loss)
         
         if learning_rate is not None and learning_rate != scheduler.get_last_lr()[0]:
             learning_rate = scheduler.get_last_lr()[0]
