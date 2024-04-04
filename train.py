@@ -25,6 +25,7 @@ def train(model, device, train_loader, optimizer, criterion,scheduler = None):
   train_loss = 0
   correct = 0
   processed = 0
+  if scheduler is not None: lr_list = []
 
   for batch_idx, (data, target) in enumerate(pbar):
     # move all data to same device
@@ -46,6 +47,7 @@ def train(model, device, train_loader, optimizer, criterion,scheduler = None):
     # these parameter values will be used for the next batch
     optimizer.step()
     if scheduler is not None:
+        lr_list.append(scheduler.get_last_lr()[0])
         scheduler.step()
 
     correct += GetCorrectPredCount(pred, target)
@@ -57,7 +59,9 @@ def train(model, device, train_loader, optimizer, criterion,scheduler = None):
 #   train_acc.append(100*correct/processed)
 #   train_losses.append(train_loss/len(train_loader))
   # returns training accuracy and loss for the epoch  
-  return (100*correct/processed), (train_loss/len(train_loader))
+  train_state_dict = {"trn_acc": (100*correct/processed), "trn_loss":(train_loss/len(train_loader))}
+  if scheduler is not None: train_state_dict["lr_list"] = lr_list
+  return train_state_dict
 
 def checkpoint(model, filename):
     torch.save(model.state_dict(), filename)
@@ -95,7 +99,7 @@ def test(model, device, test_loader, criterion):
         100. * correct / len(test_loader.dataset)))
 
     # returns test accuracy and loss for the epoch
-    return (100. * correct / len(test_loader.dataset)), test_loss
+    return {"tst_acc": (100. * correct / len(test_loader.dataset)), "tst_loss": test_loss}
 
 ### runs train and test loop for each epoch
 def train_orchestrator(model, device, train_loader, test_loader,
@@ -112,25 +116,31 @@ def train_orchestrator(model, device, train_loader, test_loader,
     test_acc = []
     best_test_loss = np.inf
     best_epoch = -1
+	# to keep track for lr updates
+    lr_list = []
 
     for epoch in range(1, num_epochs+1):
         print(f'Epoch {epoch}')
         # call train function from utils.py
         if ~scheduler_after_epoch:
-            trn_acc, trn_loss = train(model, device, train_loader, optimizer, criterion, scheduler)
+            train_state_dict = train(model, device, train_loader, optimizer, criterion, scheduler)
         else:
-            trn_acc, trn_loss = train(model, device, train_loader, optimizer, criterion)
+            train_state_dict = train(model, device, train_loader, optimizer, criterion)
         # accumulate train accuracies and test losses for visualisation
-        train_acc.append(trn_acc)
-        train_losses.append(trn_loss)
+        train_acc.append(train_state_dict["trn_acc"])
+        train_losses.append(train_state_dict["trn_loss"])
 
         # call test function from utils.py
-        tst_acc, tst_loss = test(model, device, test_loader, criterion)
+        test_state_dict = test(model, device, test_loader, criterion)
         # accumulate test accuracies and test losses for visualisation
-        test_acc.append(tst_acc)
-        test_losses.append(tst_loss)
+        test_acc.append(test_state_dict["tst_acc"])
+        test_losses.append(test_state_dict["tst_loss"])
 
-        if scheduler_after_epoch: scheduler.step(tst_loss)
+        if scheduler_after_epoch: 
+            lr_list.append(scheduler.get_last_lr()[0])
+            scheduler.step(test_state_dict["tst_loss"])
+        else: 
+            lr_list.extend(train_state_dict["lr_list"])
         
         if learning_rate is not None and learning_rate != scheduler.get_last_lr()[0]:
             learning_rate = scheduler.get_last_lr()[0]
@@ -140,8 +150,8 @@ def train_orchestrator(model, device, train_loader, test_loader,
 
         # early stopping
         if early_stopping:
-            if tst_loss < best_test_loss:
-                best_test_loss = tst_loss
+            if test_state_dict["tst_loss"] < best_test_loss:
+                best_test_loss = test_state_dict["tst_loss"]
                 best_epoch = epoch
                 checkpoint(model, "best_model.pth")
             elif epoch - best_epoch > early_stopping_patience:
@@ -151,5 +161,7 @@ def train_orchestrator(model, device, train_loader, test_loader,
             best_epoch = epoch
 
     if early_stopping: resume(model, "best_model.pth")
-
-    return train_losses, train_acc, test_losses, test_acc, best_epoch, model
+	
+    return {"train_losses": train_losses, "train_acc": train_acc, 
+					"test_losses": test_losses, "test_acc": test_acc, 
+					"best_epoch": best_epoch, "lr_list": lr_list}
