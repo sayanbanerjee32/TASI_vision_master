@@ -8,18 +8,19 @@ def get_train_test_transforms(is_train = True, mean = (0.4914,0.4822,0.4465), st
     # Train Phase transformations
     if is_train:
         transforms = A.Compose([
-                                    # A.Compose([
-                                    #     A.PadIfNeeded (min_height=36, min_width=36, p = 1.0),
-                                    #     A.RandomCrop(p=1, height=32, width=32),
-                                    # ], p = 0.5),
+                                    A.Compose([
+                                        A.PadIfNeeded (min_height=40, min_width=40, p = 1.0),
+                                        A.RandomCrop(p=1, height=32, width=32),
+                                    ], p = 0.5),
                                     A.HorizontalFlip(p=0.5),
-                                    A.ShiftScaleRotate(p=0.5),
+                                    # A.ShiftScaleRotate(p=0.5),
                                     A.Normalize(mean, std),
-                                    A.Compose([A.PadIfNeeded (min_height=64, min_width=64, p = 1.0),
-                                                A.CoarseDropout(max_holes = 1, max_height=16, max_width=16, min_holes = 1, min_height=16, min_width=16,
+                                    A.Compose([A.PadIfNeeded (min_height=48, min_width=48, p = 1.0),
+                                                A.CoarseDropout(max_holes = 1, max_height=8, max_width=8, 
+                                                                min_holes = 1, min_height=8, min_width=8,
                                                     fill_value=[0.4914,0.4822,0.4465], mask_fill_value = None, p=1),
                                             A.CenterCrop(height=32, width=32, p=1),
-                                    ], p = 1),
+                                    ], p = 0.5),
                                     ToTensorV2(),
                                     ])
 
