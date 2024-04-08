@@ -16,6 +16,22 @@ def get_device():
         torch.cuda.manual_seed(SEED)
     return cuda, torch.device("cuda" if cuda else "cpu")    
 
+## copied from https://github.com/kuangliu/pytorch-cifar/blob/master/utils.py
+def get_mean_and_std(dataset):
+    '''Compute the mean and std value of dataset.'''
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=2)
+    mean = torch.zeros(3)
+    std = torch.zeros(3)
+    print('==> Computing mean and std..')
+    for inputs, targets in dataloader:
+        for i in range(3):
+            mean[i] += inputs[:,i,:,:].mean()
+            std[i] += inputs[:,i,:,:].std()
+    mean.div_(len(dataset))
+    std.div_(len(dataset))
+    return mean, std
+
+
 # function to plot train and test accuracies and losses
 def plot_accuracy_losses(train_losses, train_acc, test_losses, test_acc, num_epochs):
     plt.figure(figsize=(12,12))
