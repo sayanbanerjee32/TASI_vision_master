@@ -2,7 +2,7 @@ import torch
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from .cifar10_dataset import Cifar10Dataset
+from .custom_dataset import Cifar10Dataset
 
 def get_train_test_transforms(is_train = True, mean = (0.4914,0.4822,0.4465), std = (0.247,0.243,0.262)):
     # Train Phase transformations
