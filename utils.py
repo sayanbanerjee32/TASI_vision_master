@@ -4,6 +4,10 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 import pandas as  pd
 
+from pytorch_grad_cam import GradCAM
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam.utils.image import show_cam_on_image
+
 
 SEED = 1
 ## function to check if GPU is available and return relevant device
@@ -151,3 +155,16 @@ def inverse_normalize(tensor, mean, std):
                 std= [1/s for s in std]
                 )
     return inv_normalize(tensor)
+
+def get_gradcam_image(model, target_layers, image, target):
+    cam = GradCAM(model=model, target_layers=target_layers)
+    input_tensor = 
+    targets = [ClassifierOutputTarget(target)]
+    grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
+
+    # In this example grayscale_cam has only one image in the batch:
+    grayscale_cam = grayscale_cam[0, :]
+    visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
+    
+    # You can also get the model outputs without having to re-inference
+    return cam.outputs
