@@ -32,7 +32,7 @@ def get_train_test_transforms(is_train = True, mean = (0.4914,0.4822,0.4465), st
     
     return transforms
 
-def get_cifar10_data_loader(dataloader_args,is_train = True):
+def get_data_loader(dataloader_args,is_train = True):
     transforms = get_train_test_transforms(is_train = is_train)
     data = Cifar10Dataset(train=is_train, transform= transforms)
     
