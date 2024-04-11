@@ -3,6 +3,8 @@ from torchvision import transforms
 
 import matplotlib.pyplot as plt
 import pandas as  pd
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
@@ -106,30 +108,65 @@ def get_individual_loss(model, device, data_loader, criterion):
 # group by target
 def plot_top_loss(model, device, data_loader, criterion,
                   label_names = None, img_rows = 5, img_cols = 5,
-                  de_normalize = True,
                   mean = [0.4914,0.4822,0.4465],
-                  std = [0.247,0.243,0.262]):
+                  std = [0.247,0.243,0.262],
+                  need_grad_cam_image = False,
+                  target_layers = None,
+                  plot_TP = True):
     loss_list = get_individual_loss(model, device, data_loader, criterion)
-    loss_df = pd.DataFrame(loss_list, columns=['image', 'target', 'prediction', 'loss'])
+    loss_df = pd.DataFrame(loss_list, columns=['transform_image', 'target', 'prediction', 'loss'])
 
     if label_names is not None:
-        loss_df['target'] = loss_df['target'].apply(lambda x: label_names[x])
-        loss_df['prediction'] = loss_df['prediction'].apply(lambda x: label_names[x])
+        loss_df['target_name'] = loss_df['target'].apply(lambda x: label_names[x])
+        loss_df['prediction_name'] = loss_df['prediction'].apply(lambda x: label_names[x])
 
-    if de_normalize:
-        loss_df['image'] = loss_df['image'].apply(lambda img: inverse_normalize(img, mean, std))
+    ## plot confusion matrix
+    plot_confusion_matrix(actual = loss_df['target_name'].to_list(),
+                          predicted =  loss_df['prediction_name'].to_list())
+    
+    loss_df['image'] = loss_df['transform_image'].apply(lambda img: inverse_normalize(img,
+                                                                                mean, std).permute(1, 2, 0).numpy())
 
-    # incorrect
+    # correct
+    if plot_TP:
+        correct_df = loss_df[loss_df.prediction == loss_df.target]
+        print(f"total correct predictions: {correct_df.shape[0]}")
+        correct_df = correct_df.sort_values(by='loss', ascending=True)
+        if need_grad_cam_image: plot_grad_cam_image(model = model,
+                                                target_layers = target_layers,
+                                                input_tensors = correct_df['transform_image'].to_list(),
+                                                images = correct_df['image'].to_list(),
+                                                cam_targets = correct_df['prediction'].to_list(),
+                                                target_labels= correct_df['target_name'].to_list(),
+                                                pred_labels= correct_df['prediction_name'].to_list(),
+                                                losses = correct_df['loss'].to_list(),
+                                                rows = img_rows, cols = img_cols)
+        else: plot_image(images = correct_df['image'].to_list(),
+                target_labels= correct_df['target_name'].to_list(),
+                pred_labels= correct_df['prediction_name'].to_list(),
+                losses = correct_df['loss'].to_list(),
+                rows = img_rows, cols = img_cols)
+    
+    # incorrect - default behaviour
     incorrect_df = loss_df[loss_df.prediction != loss_df.target]
     print(f"total wrong predictions: {incorrect_df.shape[0]}")
 
-    incr_groups = incorrect_df.groupby(['target','prediction']).agg({'loss':'median',
+    incr_groups = incorrect_df.groupby(['target_name','prediction_name']).agg({'loss':'median',
                                                              'image':'count'}).reset_index().sort_values(by='image', ascending=False)
 
     incorrect_df = incorrect_df.sort_values(by='loss', ascending=False)
-    plot_image(images = incorrect_df['image'].to_list(),
-               target_labels= incorrect_df['target'].to_list(),
-               pred_labels= incorrect_df['prediction'].to_list(),
+    if need_grad_cam_image: plot_grad_cam_image(model = model,
+                                                target_layers = target_layers,
+                                                input_tensors = incorrect_df['transform_image'].to_list(),
+                                                images = incorrect_df['image'].to_list(),
+                                                cam_targets = incorrect_df['prediction'].to_list(),
+                                                target_labels= incorrect_df['target_name'].to_list(),
+                                                pred_labels= incorrect_df['prediction_name'].to_list(),
+                                                losses = incorrect_df['loss'].to_list(),
+                                                rows = img_rows, cols = img_cols)
+    else: plot_image(images = incorrect_df['image'].to_list(),
+               target_labels= incorrect_df['target_name'].to_list(),
+               pred_labels= incorrect_df['prediction_name'].to_list(),
                losses = incorrect_df['loss'].to_list(),
                rows = img_rows, cols = img_cols)
     return incr_groups
@@ -137,15 +174,43 @@ def plot_top_loss(model, device, data_loader, criterion,
 def plot_image(images, target_labels, pred_labels = None, losses = None, rows = 5, cols = 5,
                img_size=(5,5), font_size = 7):
     figure = plt.figure(figsize=img_size)
-    for index in range(1, cols * rows  + 1):
-        plt.subplot(rows, cols, index)
+    for index in range(cols * rows):
+        plt.subplot(rows, cols, index+1)
         if pred_labels is not None and losses is not None:
             plt.title(f'target: {target_labels[index]}\nprediction: {pred_labels[index]}\nloss: {round(losses[index],2)}',
                   fontsize = font_size)
         else:
             plt.title(f'target: {target_labels[index]}', fontsize = font_size)
         plt.axis('off')
-        plt.imshow(images[index].permute(1, 2, 0))
+        plt.imshow(images[index])
+    figure.tight_layout()
+    plt.show()
+
+def plot_grad_cam_image(model, target_layers, input_tensors, images, cam_targets, target_labels,
+                        pred_labels = None, losses = None, rows = 5, cols = 5,
+               img_size=(5,5), font_size = 7):
+    ## create grad_cam
+    cam_op_list = []
+    cam_v_list = []
+    for i in range(rows*cols):
+        c, v = get_gradcam_image(model,
+                  target_layers = target_layers,
+                  input_tensor = input_tensors[i].unsqueeze(0),
+                  rgb_img = images[i],
+                  cam_target = cam_targets[i])
+        cam_op_list.append(c)
+        cam_v_list.append(v)
+
+    figure = plt.figure(figsize=img_size)
+    for index in range(cols * rows):
+        plt.subplot(rows, cols, index+1)
+        if pred_labels is not None and losses is not None:
+            plt.title(f'target: {target_labels[index]}\nprediction: {pred_labels[index]}\nloss: {round(losses[index],2)}',
+                  fontsize = font_size)
+        else:
+            plt.title(f'target: {target_labels[index]}', fontsize = font_size)
+        plt.axis('off')
+        plt.imshow(cam_v_list[index])
     figure.tight_layout()
     plt.show()
 
@@ -156,15 +221,29 @@ def inverse_normalize(tensor, mean, std):
                 )
     return inv_normalize(tensor)
 
-def get_gradcam_image(model, target_layers, image, target):
+def get_gradcam_image(model, target_layers, input_tensor, rgb_img, cam_target, cam_batch_size = 64):
     cam = GradCAM(model=model, target_layers=target_layers)
-    input_tensor = 
-    targets = [ClassifierOutputTarget(target)]
+    cam.batch_size = cam_batch_size
+    targets = [ClassifierOutputTarget(cam_target)]
     grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
 
     # In this example grayscale_cam has only one image in the batch:
     grayscale_cam = grayscale_cam[0, :]
     visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
-    
+
     # You can also get the model outputs without having to re-inference
-    return cam.outputs
+    return cam.outputs, visualization
+
+def plot_confusion_matrix(actual, predicted ):
+    cm = confusion_matrix(actual,predicted)
+    sns.heatmap(cm, 
+            annot=True,
+            fmt='g', 
+            xticklabels=sorted(list(set(actual))), 
+            yticklabels=sorted(list(set(actual)))
+            )
+    plt.yticks(rotation=0)
+    plt.ylabel('Prediction',fontsize=13)
+    plt.xlabel('Actual',fontsize=13)
+    plt.title('Confusion Matrix',fontsize=17)
+    plt.show()
